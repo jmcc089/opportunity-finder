@@ -1,0 +1,136 @@
+{
+  "tcm": [
+    {
+      "name": "Sausalito Art Festival",
+      "city": "Sausalito, CA",
+      "start_date": "2026-08-30",
+      "end_date": "2026-09-01",
+      "venue": "Marinship Park",
+      "description": "Premier juried outdoor fine art festival.",
+      "stand_cost": "$450",
+      "tag_indoor": false,
+      "tag_outdoor": true,
+      "tag_juried": true,
+      "deadline_date": "2026-04-01",
+      "detail_url": "https://www.thecraftmap.com/fair/sausalito-art-festival",
+      "source": "thecraftmap"
+    },
+    {
+      "name": "San Jose Holiday Craft Fair",
+      "city": "San Jose, CA",
+      "start_date": "2026-12-05",
+      "end_date": "2026-12-07",
+      "venue": "San Jose Convention Center",
+      "description": "Indoor holiday market with handmade goods.",
+      "stand_cost": "$300",
+      "tag_indoor": true,
+      "tag_outdoor": false,
+      "tag_juried": false,
+      "deadline_date": "2026-09-15",
+      "detail_url": "https://www.thecraftmap.com/fair/san-jose-holiday-craft-fair",
+      "source": "thecraftmap"
+    },
+    {
+      "name": "Minimal Fields Bazaar",
+      "city": "Fresno, CA",
+      "start_date": "2026-10-10",
+      "end_date": "2026-10-10",
+      "venue": null,
+      "description": null,
+      "stand_cost": null,
+      "tag_indoor": null,
+      "tag_outdoor": null,
+      "tag_juried": null,
+      "deadline_date": null,
+      "detail_url": null,
+      "source": "thecraftmap"
+    },
+    {
+      "name": "Berkeley Arts & Crafts Show",
+      "city": "Berkeley, CA",
+      "start_date": "2026-07-18",
+      "end_date": "2026-07-19",
+      "venue": "Civic Center Park",
+      "description": "Summer outdoor arts show.",
+      "stand_cost": "$200",
+      "tag_indoor": false,
+      "tag_outdoor": true,
+      "tag_juried": false,
+      "deadline_date": "2026-05-30",
+      "detail_url": "https://www.thecraftmap.com/fair/berkeley-arts-crafts-show",
+      "source": "thecraftmap"
+    },
+    {
+      "name": "Sacramento Makers Market",
+      "city": "Sacramento, CA",
+      "start_date": "2026-09-20",
+      "end_date": "2026-09-20",
+      "venue": "Midtown Park",
+      "description": null,
+      "stand_cost": "$150",
+      "tag_indoor": false,
+      "tag_outdoor": true,
+      "tag_juried": null,
+      "deadline_date": "2026-08-01",
+      "detail_url": "https://www.thecraftmap.com/fair/sacramento-makers-market",
+      "source": "thecraftmap"
+    },
+    {
+      "name": "Laguna Beach Festival of Arts",
+      "city": "Laguna Beach, CA",
+      "start_date": "2026-07-01",
+      "end_date": "2026-08-31",
+      "venue": "Festival of Arts Grounds",
+      "description": "Long-running juried fine art exhibition.",
+      "stand_cost": "$600",
+      "tag_indoor": true,
+      "tag_outdoor": true,
+      "tag_juried": true,
+      "deadline_date": "2026-01-15",
+      "detail_url": "https://www.thecraftmap.com/fair/laguna-beach-festival-of-arts",
+      "source": "thecraftmap"
+    }
+  ],
+  "fg": [
+    {
+      "name": "Ventura County Fair",
+      "city": "Ventura, CA",
+      "start_date": "2026-08-05",
+      "end_date": "2026-08-16",
+      "date_unconfirmed": false,
+      "status": "active",
+      "external_url": "https://www.venturacountyfair.org/",
+      "source": "festivalguides"
+    },
+    {
+      "name": "CANCELLED EVENT",
+      "city": "Los Angeles, CA",
+      "start_date": "2026-07-20",
+      "end_date": "2026-07-20",
+      "date_unconfirmed": false,
+      "status": "cancelled",
+      "external_url": null,
+      "source": "festivalguides"
+    },
+    {
+      "name": "Minimal FG Entry",
+      "city": "Stockton, CA",
+      "start_date": "2026-08-22",
+      "end_date": "2026-08-22",
+      "date_unconfirmed": false,
+      "status": "active",
+      "external_url": null,
+      "source": "festivalguides"
+    },
+    {
+      "name": "Unconfirmed Date Festival",
+      "city": "San Diego, CA",
+      "start_date": "2026-09-12",
+      "end_date": "2026-09-14",
+      "date_unconfirmed": true,
+      "status": "active",
+      "external_url": "https://example.com/sandiegofest",
+      "source": "festivalguides"
+    }
+  ]
+}
