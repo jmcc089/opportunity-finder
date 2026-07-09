@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background-color: #F4F6F3;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+input[type="date"] {
+  color-scheme: light;
+  color: #1F3D2B;
+}
