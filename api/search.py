@@ -183,25 +183,23 @@ def run_pipeline(body: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Vercel handler
+# Flask app — Vercel Python runtime entry point
 # ---------------------------------------------------------------------------
 
-def handler(request: Any, response: Any) -> None:  # pragma: no cover
-    """Vercel Python runtime entry point."""
-    if request.method != "POST":
-        response.status_code = 405
-        response.send(json.dumps({"error": "Method Not Allowed"}))
-        return
+from flask import Flask, request as flask_request, Response  # noqa: E402
+
+app = Flask(__name__)
+
+
+@app.route("/api/search", methods=["POST"])
+def search() -> Response:
     try:
-        body = request.json
+        body = flask_request.get_json(force=True) or {}
     except Exception:
-        response.status_code = 400
-        response.send(json.dumps({"error": "invalid JSON body"}))
-        return
+        return Response(json.dumps({"error": "invalid JSON body"}), status=400, mimetype="application/json")
     result = run_pipeline(body)
     status = 400 if "error" in result else 200
-    response.status_code = status
-    response.send(json.dumps(result))
+    return Response(json.dumps(result), status=status, mimetype="application/json")
 
 
 # ---------------------------------------------------------------------------
