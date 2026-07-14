@@ -10,6 +10,76 @@ type AppState = 'form' | 'loading' | 'results' | 'empty';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
+// The Python backend (/api/search) and the UI use different field names and
+// shapes. This adapts the real API response into the EventResult shape the
+// cards render. The mock fixture is already in EventResult shape, so it skips
+// this path.
+interface RawApiResult {
+  name?: string;
+  city?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  stand_cost?: number | null;
+  tag_indoor?: boolean | null;
+  tag_outdoor?: boolean | null;
+  deadline_date?: string | null;
+  detail_url?: string | null;
+  source?: string;
+  final_score?: number | null;
+  explanation?: string;
+  estimated_attendance?: string | number | null;
+  likely_permits?: string[];
+  recommendation?: string;
+  estimated_fields?: string[];
+}
+
+const RECOMMENDATION_MAP: Record<string, EventResult['recommendation']> = {
+  worth_it: 'worth it',
+  with_reservations: 'with reservations',
+  better_not: 'better not',
+};
+
+// estimated_fields uses backend field names; remap the ones the UI checks by key.
+const ESTIMATED_FIELD_MAP: Record<string, string> = {
+  stand_cost: 'booth_cost',
+  deadline_date: 'application_deadline',
+  tag_indoor: 'setting',
+  tag_outdoor: 'setting',
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  thecraftmap: 'TheCraftMap',
+  festivalguides: 'FestivalGuides',
+};
+
+function deriveSetting(raw: RawApiResult): string | null {
+  if (raw.tag_outdoor) return 'outdoor';
+  if (raw.tag_indoor) return 'indoor';
+  return null;
+}
+
+function adaptResult(raw: RawApiResult, index: number): EventResult {
+  const estimated = (raw.estimated_fields ?? []).map((f) => ESTIMATED_FIELD_MAP[f] ?? f);
+  return {
+    rank: index + 1,
+    score: raw.final_score ?? 0,
+    event_name: raw.name ?? 'Untitled event',
+    city: raw.city ?? '',
+    date_start: raw.start_date ?? '',
+    date_end: raw.end_date ?? '',
+    recommendation: RECOMMENDATION_MAP[raw.recommendation ?? ''] ?? 'with reservations',
+    explanation: raw.explanation ?? '',
+    booth_cost: raw.stand_cost ?? null,
+    estimated_attendance: raw.estimated_attendance ?? null,
+    application_deadline: raw.deadline_date ?? null,
+    setting: deriveSetting(raw),
+    likely_permits: raw.likely_permits ?? [],
+    source_name: SOURCE_LABELS[raw.source ?? ''] ?? raw.source ?? '',
+    source_url: raw.detail_url ?? '',
+    estimated_fields: estimated,
+  };
+}
+
 async function fetchResults(query: SearchQuery): Promise<{ results: EventResult[]; warnings: string[] }> {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 800));
@@ -25,7 +95,8 @@ async function fetchResults(query: SearchQuery): Promise<{ results: EventResult[
 
   if (!res.ok) throw new Error(`API error ${res.status}`);
   const data = await res.json();
-  return { results: data.results, warnings: data.meta?.warnings ?? [] };
+  const results = (data.results ?? []).map(adaptResult);
+  return { results, warnings: data.meta?.warnings ?? [] };
 }
 
 export default function App() {
@@ -39,6 +110,7 @@ export default function App() {
     setError(null);
     try {
       const { results: res, warnings: w } = await fetchResults(query);
+      res.sort((a, b) => b.score - a.score); // highest score first
       setResults(res);
       setWarnings(w);
       setState(res.length === 0 ? 'empty' : 'results');

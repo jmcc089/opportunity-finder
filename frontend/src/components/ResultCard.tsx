@@ -9,10 +9,10 @@ export interface EventResult {
   date_end: string;
   recommendation: 'worth it' | 'with reservations' | 'better not';
   explanation: string;
-  booth_cost: number;
-  estimated_attendance: number;
-  application_deadline: string;
-  setting: string;
+  booth_cost: number | null;
+  estimated_attendance: string | number | null;
+  application_deadline: string | null;
+  setting: string | null;
   likely_permits: string[];
   source_name: string;
   source_url: string;
@@ -25,8 +25,27 @@ const recommendationStyles: Record<string, string> = {
   'better not': 'bg-red-50 text-red-600 font-semibold',
 };
 
-function formatDate(d: string) {
-  return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+// Score color mirrors the recommendation verdict.
+const scoreColors: Record<string, string> = {
+  'worth it': 'text-sage',
+  'with reservations': 'text-amber-700',
+  'better not': 'text-red-600',
+};
+
+function formatDate(d: string | null | undefined): string {
+  if (!d) return '—';
+  const parsed = new Date(d + 'T00:00:00');
+  if (isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatBoothCost(cost: number | null): string {
+  return cost != null ? `$${cost.toLocaleString()}` : '—';
+}
+
+function formatAttendance(a: string | number | null): string {
+  if (a == null) return '—';
+  return typeof a === 'number' ? a.toLocaleString() : a;
 }
 
 export function ResultCard({ result }: { result: EventResult }) {
@@ -38,9 +57,8 @@ export function ResultCard({ result }: { result: EventResult }) {
       {/* Header */}
       <div className="flex items-start gap-4">
         {/* Score tile */}
-        <div className="bg-sage-bg rounded-[10px] px-3 py-2 text-center min-w-[56px] flex-shrink-0">
-          <div className="text-2xl font-bold text-sage">{result.score}</div>
-          <div className="text-xs text-ink-soft leading-tight">/ 100</div>
+        <div className="bg-sage-bg rounded-[10px] px-3 py-2 min-w-[56px] flex-shrink-0 flex items-center justify-center">
+          <div className={`text-4xl font-bold leading-none ${scoreColors[result.recommendation] ?? 'text-sage'}`}>{result.score}</div>
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-ink font-semibold text-base leading-snug">{result.event_name}</h3>
@@ -63,10 +81,10 @@ export function ResultCard({ result }: { result: EventResult }) {
 
       {/* Data grid */}
       <div className="bg-page rounded-[10px] px-4 py-2">
-        <FieldRow label="Booth cost" value={`$${result.booth_cost}`} fieldKey="booth_cost" estimatedFields={estimated_fields} />
-        <FieldRow label="Est. attendance" value={result.estimated_attendance.toLocaleString()} fieldKey="estimated_attendance" estimatedFields={estimated_fields} />
+        <FieldRow label="Booth cost" value={formatBoothCost(result.booth_cost)} fieldKey="booth_cost" estimatedFields={estimated_fields} />
+        <FieldRow label="Est. attendance" value={formatAttendance(result.estimated_attendance)} fieldKey="estimated_attendance" estimatedFields={estimated_fields} />
         <FieldRow label="Application deadline" value={formatDate(result.application_deadline)} fieldKey="application_deadline" estimatedFields={estimated_fields} />
-        <FieldRow label="Setting" value={result.setting} fieldKey="setting" estimatedFields={estimated_fields} />
+        <FieldRow label="Setting" value={result.setting || '—'} fieldKey="setting" estimatedFields={estimated_fields} />
       </div>
 
       {/* Permits */}
@@ -87,14 +105,18 @@ export function ResultCard({ result }: { result: EventResult }) {
       {/* Footer */}
       <div className="flex items-center justify-between pt-1 border-t border-sage-line">
         <span className="text-xs text-muted">{result.source_name}</span>
-        <a
-          href={result.source_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-sage-mid hover:underline font-medium"
-        >
-          View event →
-        </a>
+        {result.source_url ? (
+          <a
+            href={result.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-sage-mid hover:underline font-medium"
+          >
+            View event →
+          </a>
+        ) : (
+          <span className="text-xs text-muted">No link available</span>
+        )}
       </div>
     </div>
   );
