@@ -143,6 +143,18 @@ def scrape_thecraftmap(html: str | None = None) -> list[dict]:
         name = None
         tag_indoor = tag_outdoor = tag_juried = False
 
+        # Event name is the token immediately before the 📍 (location) marker.
+        # The tokens between the date and the location are countdown/urgency
+        # labels ("In 16 days", "Tomorrow!", after ⏰/📆) followed by the name,
+        # so anchoring on 📍 is far more reliable than picking the first
+        # plain-text token (which would grab the countdown label instead).
+        if "📍" in parts:
+            pin_idx = parts.index("📍")
+            if pin_idx > 0:
+                candidate = parts[pin_idx - 1]
+                if candidate and not re.match(r"^[📅📍💰⭐🏠🌳⏰📆]", candidate):
+                    name = candidate
+
         i = 0
         while i < len(parts):
             tok = parts[i]
@@ -170,18 +182,13 @@ def scrape_thecraftmap(html: str | None = None) -> list[dict]:
             elif "juried" in tok.lower() or "⭐" in tok:
                 tag_juried = True
                 i += 1
-            elif tok in ("⏰",):
-                i += 2  # skip urgency token + its value
+            elif tok in ("⏰", "📆"):
+                i += 2  # skip urgency/countdown token + its value ("In 16 days")
             else:
-                # Likely the event name (longest non-marker token before city)
-                if name is None and city_raw is None and not re.match(r"^[📅📍💰⭐🏠🌳⏰]", tok):
-                    # Heuristic: name is the longest "plain text" token seen so far
-                    if len(tok) > 3 and not re.match(r"^\d", tok):
-                        name = tok
-                elif name is not None and city_raw is not None:
-                    # Anything after city/venue is description
-                    if description_raw is None:
-                        description_raw = tok
+                # Name is set from the token before 📍 (see above); here we only
+                # pick up the description, which is anything after city/venue.
+                if name is not None and city_raw is not None and description_raw is None:
+                    description_raw = tok
                 i += 1
 
         # Also scan for inline badge text (e.g. "💰 $285" merged into one token)
