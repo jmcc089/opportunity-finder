@@ -3,6 +3,7 @@ import { SearchForm } from './components/SearchForm';
 import type { SearchQuery } from './components/SearchForm';
 import { ResultCard } from './components/ResultCard';
 import type { EventResult } from './components/ResultCard';
+import { LoadingScreen } from './components/LoadingScreen';
 import sampleData from '../../fixtures/sample_api_response.json';
 
 type AppState = 'form' | 'loading' | 'results' | 'empty';
@@ -73,12 +74,7 @@ export default function App() {
           <SearchForm onSearch={handleSearch} loading={false} />
         )}
 
-        {state === 'loading' && (
-          <div className="bg-card rounded-[14px] border border-sage-line shadow-md p-12 text-center">
-            <div className="inline-block w-10 h-10 border-4 border-sage-line border-t-sage rounded-full animate-spin mb-4" />
-            <p className="text-ink-soft text-sm">Finding the best events for your business...</p>
-          </div>
-        )}
+        {state === 'loading' && <LoadingScreen />}
 
         {state === 'results' && (
           <>
