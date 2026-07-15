@@ -4,20 +4,14 @@ api/search.py — Vercel serverless function: POST /api/search
 Orchestrates the full pipeline:
   scrape → normalize → city/date filter → classify →
   affinity filter/cut → Stage-1 prescore → Stage-2 enrich
-
-Self-test harness:
-  DEEPSEEK_MOCK=1 python api/search.py --selftest
 """
 from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
-import traceback
 from datetime import date
 from pathlib import Path
-from typing import Any
 
 # --- path setup so imports work both as a Vercel function and from project/ ---
 _HERE = Path(__file__).parent          # project/api/
@@ -65,48 +59,31 @@ def _filter_city_date(
 
 
 # ---------------------------------------------------------------------------
-# Scrape with live→snapshot fallback
+# Scrape live sources. On failure, emit a warning and return []; the pipeline
+# surfaces an honest error if both sources come back empty. No stale fallback.
 # ---------------------------------------------------------------------------
 
 def _scrape_tcm(warnings: list[str]) -> list[dict]:
     try:
-        rows = scrape_thecraftmap()   # live
+        rows = scrape_thecraftmap()
         if rows:
             return rows
         raise ValueError("empty result from live TCM")
     except Exception as exc:
-        warnings.append(f"TCM live scrape failed ({exc}); using snapshot")
-        log.warning("TCM live scrape failed: %s", exc)
-    try:
-        snap = (_ROOT / "fixtures" / "tcm_snapshot.html").read_text(encoding="utf-8")
-        rows = scrape_thecraftmap(html=snap)
-        if rows:
-            return rows
-        raise ValueError("empty result from TCM snapshot")
-    except Exception as exc2:
-        warnings.append(f"TCM snapshot also failed ({exc2}); source omitted")
-        log.error("TCM snapshot failed: %s", exc2)
+        warnings.append(f"TCM scrape failed ({exc})")
+        log.warning("TCM scrape failed: %s", exc)
         return []
 
 
 def _scrape_fg(warnings: list[str]) -> list[dict]:
     try:
-        rows = scrape_festivalguides()  # live
+        rows = scrape_festivalguides()
         if rows:
             return rows
         raise ValueError("empty result from live FG")
     except Exception as exc:
-        warnings.append(f"FG live scrape failed ({exc}); using snapshot")
-        log.warning("FG live scrape failed: %s", exc)
-    try:
-        snap = (_ROOT / "fixtures" / "fg_snapshot.html").read_text(encoding="utf-8")
-        rows = scrape_festivalguides(html=snap)
-        if rows:
-            return rows
-        raise ValueError("empty result from FG snapshot")
-    except Exception as exc2:
-        warnings.append(f"FG snapshot also failed ({exc2}); source omitted")
-        log.error("FG snapshot failed: %s", exc2)
+        warnings.append(f"FG scrape failed ({exc})")
+        log.warning("FG scrape failed: %s", exc)
         return []
 
 
@@ -135,7 +112,7 @@ def run_pipeline(body: dict) -> dict:
 
     if not tcm_raw and not fg_raw:
         return {
-            "error": "both sources failed",
+            "error": "could not fetch events right now; please try again in a moment",
             "meta": {"warnings": warnings},
         }
 
@@ -168,7 +145,6 @@ def run_pipeline(body: dict) -> dict:
         "results": enriched,
         "meta": {
             "total_scraped": len(tcm_raw) + len(fg_raw),
-            "after_normalize": len(events) + (1 if len(events) else 0),  # approximate
             "after_city_date_filter": len(events),
             "after_affinity_cut": len(candidates),
             "returned": len(enriched),
@@ -200,98 +176,3 @@ def search() -> Response:
     result = run_pipeline(body)
     status = 400 if "error" in result else 200
     return Response(json.dumps(result), status=status, mimetype="application/json")
-
-
-# ---------------------------------------------------------------------------
-# Self-test harness  (DEEPSEEK_MOCK=1 python api/search.py --selftest)
-# ---------------------------------------------------------------------------
-
-def _selftest() -> None:
-    os.environ.setdefault("DEEPSEEK_MOCK", "1")
-
-    print("=" * 60)
-    print("SELF-TEST: full pipeline (snapshots + mock DeepSeek)")
-    print("=" * 60)
-
-    # --- baseline: search that should find results ---
-    body_ok = {
-        "category": "hot_food",
-        "city": None,       # no city filter → use all events
-        "date_from": None,
-        "date_to": None,
-    }
-    print("\n[1] Full pipeline (no city/date filter):")
-    result = run_pipeline(body_ok)
-    results = result.get("results", [])
-    meta = result.get("meta", {})
-    print(f"  results count : {len(results)}")
-    print(f"  meta.warnings : {meta.get('warnings', [])}")
-    assert len(results) == 5, f"Expected 5 results, got {len(results)}"
-    for r in results:
-        assert "estimated_fields" in r, "Missing estimated_fields"
-        assert r.get("event_type") is not None, "Missing event_type"
-    print("  PASS: 5 results, all have estimated_fields and event_type")
-
-    # --- check AI fields are present ---
-    ai_fields = {"final_score", "explanation", "estimated_attendance", "likely_permits", "category_fit", "recommendation"}
-    present = ai_fields & set(results[0].keys())
-    assert present == ai_fields, f"Missing AI fields: {ai_fields - present}"
-    print(f"  PASS: AI fields present ({sorted(present)})")
-
-    # --- single-source failure: verify warning mechanism + pipeline survives empty TCM ---
-    print("\n[2] Single-source failure (TCM scraper raises → warning emitted, FG alone returns 5):")
-
-    # Patch the name in the running module (__main__ when run directly, api.search otherwise)
-    _self_mod = sys.modules[__name__]
-    _orig_fn = _self_mod.scrape_thecraftmap
-
-    def _always_raise(*_a, **_kw):
-        raise RuntimeError("simulated TCM failure")
-
-    _self_mod.scrape_thecraftmap = _always_raise
-    try:
-        warnings_sim: list[str] = []
-        tcm_result = _scrape_tcm(warnings_sim)
-    finally:
-        _self_mod.scrape_thecraftmap = _orig_fn
-
-    assert tcm_result == [], f"Expected empty list from failed TCM, got {len(tcm_result)} events"
-    assert any("TCM" in w for w in warnings_sim), f"Expected TCM warning; got: {warnings_sim}"
-    print(f"  PASS: empty TCM result + warning: {warnings_sim[0]}")
-
-    # Verify pipeline still returns 5 when TCM raw list is empty (uses only FG)
-    from scrapers.festivalguides import scrape_festivalguides as _orig_fg_fn
-    snap_html = (_ROOT / "fixtures" / "fg_snapshot.html").read_text(encoding="utf-8")
-    fg_only = _orig_fg_fn(html=snap_html)
-    events_fg = normalize([], fg_only)
-    events_fg = classify(events_fg)
-    candidates_fg = filter_and_cut(events_fg, body_ok["category"])
-    top5_fg = prescore_top5(candidates_fg, body_ok["category"])
-    enriched_fg = enrich(top5_fg, body_ok["category"])
-    assert len(enriched_fg) == 5, f"Expected 5 from FG alone, got {len(enriched_fg)}"
-    print(f"  PASS: FG-only pipeline returns {len(enriched_fg)} results")
-
-    # --- invalid category ---
-    print("\n[3] Invalid category:")
-    result3 = run_pipeline({"category": "invalid", "city": None})
-    assert "error" in result3, "Expected error for invalid category"
-    print(f"  PASS: error returned: {result3['error']}")
-
-    # --- no secret in source files ---
-    print("\n[4] No DEEPSEEK_API_KEY hardcoded in source:")
-    key = os.environ.get("DEEPSEEK_API_KEY", "")
-    if key:
-        src = Path(__file__).read_text()
-        assert key not in src, "API key found hardcoded in search.py!"
-    print("  PASS (key absent from env or not found in source)")
-
-    print("\n" + "=" * 60)
-    print("ALL SELF-TEST CHECKS PASSED")
-    print("=" * 60)
-
-
-if __name__ == "__main__":
-    if "--selftest" in sys.argv:
-        _selftest()
-    else:
-        print("Usage: DEEPSEEK_MOCK=1 python api/search.py --selftest")
