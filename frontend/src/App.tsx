@@ -4,11 +4,8 @@ import type { SearchQuery } from './components/SearchForm';
 import { ResultCard } from './components/ResultCard';
 import type { EventResult } from './components/ResultCard';
 import { LoadingScreen } from './components/LoadingScreen';
-import sampleData from '../../fixtures/sample_api_response.json';
 
 type AppState = 'form' | 'loading' | 'results' | 'empty';
-
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 // The Python backend (/api/search) and the UI use different field names and
 // shapes. This adapts the real API response into the EventResult shape the
@@ -80,12 +77,7 @@ function adaptResult(raw: RawApiResult, index: number): EventResult {
   };
 }
 
-async function fetchResults(query: SearchQuery): Promise<{ results: EventResult[]; warnings: string[] }> {
-  if (USE_MOCK) {
-    await new Promise((r) => setTimeout(r, 800));
-    const data = sampleData as { results: EventResult[]; meta: { warnings: string[] } };
-    return { results: data.results, warnings: data.meta.warnings };
-  }
+async function (query: SearchQuery): Promise<{ results: EventResult[]; warnings: string[] }> {
 
   const res = await fetch('/api/search', {
     method: 'POST',
