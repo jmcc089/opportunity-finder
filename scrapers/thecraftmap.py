@@ -92,10 +92,10 @@ def _get_deadline_map(soup: BeautifulSoup) -> tuple[dict[str, str], set[str]]:
 
 def scrape_thecraftmap() -> list[dict]:
     """Parse TheCraftMap California listing into raw dicts."""
-resp = requests.get(SOURCE_URL, headers=HEADERS, timeout=20)
-if resp.status_code != 200:
-    raise ValueError(f"HTTP {resp.status_code}")
-html = resp.text
+    resp = requests.get(SOURCE_URL, headers=HEADERS, timeout=20)
+    if resp.status_code != 200:
+        raise ValueError(f"HTTP {resp.status_code}")
+    html = resp.text
 
     soup = BeautifulSoup(html, "html.parser")
     deadline_map, deadline_only_hrefs = _get_deadline_map(soup)
