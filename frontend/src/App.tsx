@@ -85,8 +85,11 @@ async function fetchResults(query: SearchQuery): Promise<{ results: EventResult[
     body: JSON.stringify(query),
   });
 
-  if (!res.ok) throw new Error(`API error ${res.status}`);
   const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || `API error ${res.status}`);
+  }
   const results = (data.results ?? []).map(adaptResult);
   return { results, warnings: data.meta?.warnings ?? [] };
 }
