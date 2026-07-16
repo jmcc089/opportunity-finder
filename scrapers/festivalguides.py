@@ -130,18 +130,17 @@ def _parse_entry(node_list, year: int) -> Optional[dict]:
 
 
 def scrape_festivalguides() -> list[dict]:
-    """Parse the FestivalGuides California list into raw dicts.
-    If html is None, fetch live (browser User-Agent)."""
+    """Parse the FestivalGuides California list into raw dicts."""
     headers = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    )
-}
-resp = requests.get(_SOURCE_URL, headers=headers, timeout=15)
-resp.raise_for_status()
-html = resp.text
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
+    }
+    resp = requests.get(_SOURCE_URL, headers=headers, timeout=15)
+    resp.raise_for_status()
+    html = resp.text
 
     today = datetime.date.today()
     current_month = today.month
