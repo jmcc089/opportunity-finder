@@ -26,7 +26,7 @@ Each stage narrows the field to control token cost. Nothing hits the LLM until P
 
 | Layer | Tool | Purpose |
 |---|---|---|
-| Scraping | Python / BeautifulSoup | TheCraftMap + FestivalGuides live + snapshot fallback |
+| Scraping | Python / BeautifulSoup | TheCraftMap + FestivalGuides, live on each request |
 | Pipeline | Python (classify, filter, normalize) | Event typing, affinity scoring, deadline filtering |
 | AI | DeepSeek `deepseek-v4-flash` | 2-stage scoring: pre-score → enrichment |
 | API | Flask (Vercel serverless) | `/api/search` endpoint orchestrating the full cascade |
@@ -35,7 +35,8 @@ Each stage narrows the field to control token cost. Nothing hits the LLM until P
 
 ## Key design decisions
 
-- **No database.** Events are scraped live on each request with a snapshot fallback. Portfolio use case, low traffic — no persistence needed.
+- **No database.** Events are scraped live on each request. Portfolio use case, low traffic — no persistence needed.
+- **Fail honestly.** If a source can't be reached, the app surfaces a clear error rather than serving stale data. No silent fallback to old snapshots.
 - **Two-stage LLM cascade.** Stage 1 (pre-score 20 events cheaply) → Stage 2 (enrich top 5 richly). Controls token cost without sacrificing result quality.
 - **Real vs. AI field markers.** Fields that come from scraping show ✓; fields estimated by DeepSeek show ✦. The distinction is visible on every result card.
 - **Affinity table over embeddings.** A hand-tuned 3×6 matrix (category × event type) ranks events deterministically before the LLM sees them. Fast, auditable, no vector infrastructure.
@@ -46,36 +47,31 @@ Each stage narrows the field to control token cost. Nothing hits the LLM until P
 project/
 ├── api/search.py          # Flask entrypoint — orchestrates full cascade
 ├── scrapers/
-│   ├── thecraftmap.py     # TheCraftMap scraper + snapshot fallback
-│   └── festivalguides.py  # FestivalGuides scraper + snapshot fallback
+│   ├── thecraftmap.py     # TheCraftMap scraper
+│   └── festivalguides.py  # FestivalGuides scraper
 ├── pipeline/
 │   ├── normalize.py       # Raw dicts → Event objects
 │   ├── classify.py        # Keyword-based event_type assignment
-│   └── filter.py          # Deadline drop + affinity rank + cut to 20
-├── llm/
-│   ├── deepseek.py        # DeepSeek client (mock-capable)
+│   ├── filter.py          # Deadline drop + affinity rank + cut to 20
 │   ├── stage1.py          # Pre-score 20 → top 5
 │   └── stage2.py          # Enrich top 5 → final output
-├── frontend/              # Vite + React + TypeScript app
-│   └── src/
-│       ├── App.tsx
-│       ├── components/SearchForm.tsx
-│       ├── components/ResultCard.tsx
-│       └── components/FieldRow.tsx
-└── fixtures/              # Sample data for offline dev/testing
+├── llm/
+│   └── deepseek.py        # DeepSeek client
+└── frontend/              # Vite + React + TypeScript app
+    └── src/
+        ├── App.tsx
+        ├── components/SearchForm.tsx
+        ├── components/ResultCard.tsx
+        └── components/FieldRow.tsx
 ```
 
 ## Local dev
 
 ```bash
-cd project
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Run API in mock mode (no DeepSeek key needed)
-DEEPSEEK_MOCK=1 python api/search.py --selftest
-
-# Run frontend
+# Run the frontend
 cd frontend && npm install && npm run dev
 ```
 
