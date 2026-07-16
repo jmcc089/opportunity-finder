@@ -77,7 +77,7 @@ function adaptResult(raw: RawApiResult, index: number): EventResult {
   };
 }
 
-async function (query: SearchQuery): Promise<{ results: EventResult[]; warnings: string[] }> {
+async function fetchResults(query: SearchQuery): Promise<{ results: EventResult[]; warnings: string[] }> {
 
   const res = await fetch('/api/search', {
     method: 'POST',
