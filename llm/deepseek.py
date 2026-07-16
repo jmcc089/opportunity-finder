@@ -1,20 +1,13 @@
 """
 DeepSeek LLM client with mock support.
 
-Set DEEPSEEK_MOCK=1 to return a fixed fixture response instead of hitting the network.
 """
 import json
 import os
 
 
-def call_deepseek(messages: list[dict], max_tokens: int = 512, mock_fixture: str = "mock_stage1_response.json") -> str:
+def call_deepseek(messages: list[dict], max_tokens: int = 512) -> str:
     """Call DeepSeek and return the response content string."""
-    if os.environ.get("DEEPSEEK_MOCK") == "1":
-        fixture_path = os.path.join(
-            os.path.dirname(__file__), "..", "fixtures", mock_fixture
-        )
-        with open(fixture_path) as f:
-            return f.read().strip()
 
     import openai
 
