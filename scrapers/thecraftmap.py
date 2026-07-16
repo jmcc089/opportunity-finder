@@ -1,11 +1,9 @@
-import pathlib
 import re
 from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
 
-SNAPSHOT = pathlib.Path(__file__).parent.parent / "fixtures" / "tcm_snapshot.html"
 SOURCE_URL = "https://www.thecraftmap.com/fairs/california"
 HEADERS = {
     "User-Agent": (
@@ -92,23 +90,12 @@ def _get_deadline_map(soup: BeautifulSoup) -> tuple[dict[str, str], set[str]]:
     return deadlines, deadline_hrefs
 
 
-def scrape_thecraftmap(html: str | None = None) -> list[dict]:
-    """Parse TheCraftMap California listing into raw dicts.
-
-    If html is None, fetch live (with a browser User-Agent).  On any network
-    error, fall back to the saved snapshot at fixtures/tcm_snapshot.html.
-    Passing html directly skips the network entirely.
-    """
-    if html is None:
-        try:
-            resp = requests.get(SOURCE_URL, headers=HEADERS, timeout=20)
-            if resp.status_code != 200:
-                raise ValueError(f"HTTP {resp.status_code}")
-            html = resp.text
-            # Refresh snapshot on successful fetch
-            SNAPSHOT.write_text(html, encoding="utf-8")
-        except Exception:
-            html = SNAPSHOT.read_text(encoding="utf-8")
+def scrape_thecraftmap() -> list[dict]:
+    """Parse TheCraftMap California listing into raw dicts."""
+resp = requests.get(SOURCE_URL, headers=HEADERS, timeout=20)
+if resp.status_code != 200:
+    raise ValueError(f"HTTP {resp.status_code}")
+html = resp.text
 
     soup = BeautifulSoup(html, "html.parser")
     deadline_map, deadline_only_hrefs = _get_deadline_map(soup)
