@@ -1,5 +1,5 @@
 """
-DeepSeek LLM client with mock support.
+DeepSeek LLM client.
 
 """
 import json
