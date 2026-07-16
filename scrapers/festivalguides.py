@@ -5,7 +5,6 @@ We parse only public listing text for a portfolio tool; we do not reproduce
 the site's editorial text wholesale.
 """
 import re
-import pathlib
 import datetime
 from typing import Optional
 
@@ -13,7 +12,6 @@ import requests
 from bs4 import BeautifulSoup, Tag
 
 _SOURCE_URL = "https://festivalguidesandreviews.com/california-festivals/"
-_SNAPSHOT = pathlib.Path(__file__).parent.parent / "fixtures" / "fg_snapshot.html"
 _MONTHS = {
     "JANUARY": 1, "FEBRUARY": 2, "MARCH": 3, "APRIL": 4,
     "MAY": 5, "JUNE": 6, "JULY": 7, "AUGUST": 8,
@@ -131,26 +129,19 @@ def _parse_entry(node_list, year: int) -> Optional[dict]:
     }
 
 
-def scrape_festivalguides(html: str | None = None) -> list[dict]:
+def scrape_festivalguides() -> list[dict]:
     """Parse the FestivalGuides California list into raw dicts.
-    If html is None, fetch live (browser User-Agent). On network error, fall back to
-    fixtures/fg_snapshot.html. Passing html directly (fixture) skips the network.
-    """
-    if html is None:
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            )
-        }
-        try:
-            resp = requests.get(_SOURCE_URL, headers=headers, timeout=15)
-            resp.raise_for_status()
-            html = resp.text
-            _SNAPSHOT.write_text(html, encoding="utf-8")
-        except Exception:
-            html = _SNAPSHOT.read_text(encoding="utf-8")
+    If html is None, fetch live (browser User-Agent)."""
+    headers = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
+}
+resp = requests.get(_SOURCE_URL, headers=headers, timeout=15)
+resp.raise_for_status()
+html = resp.text
 
     today = datetime.date.today()
     current_month = today.month
