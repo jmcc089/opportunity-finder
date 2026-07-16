@@ -90,7 +90,7 @@ def enrich(top5: list[dict], user_category: str) -> list[dict]:
         {"role": "user", "content": prompt},
     ]
 
-    raw = call_deepseek(messages, max_tokens=1024, mock_fixture="mock_stage2_response.json")
+    raw = call_deepseek(messages, max_tokens=1024)
 
     ai_by_id: dict[int, dict] = {}
     try:
