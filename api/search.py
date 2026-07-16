@@ -12,6 +12,7 @@ import logging
 import sys
 from datetime import date
 from pathlib import Path
+from upstash_redis import Redis
 
 # --- path setup so imports work both as a Vercel function and from project/ ---
 _HERE = Path(__file__).parent          # project/api/
@@ -31,6 +32,17 @@ log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 VALID_CATEGORIES = {"hot_food", "drinks_desserts", "souvenirs_merch"}
+
+_redis = Redis.from_env()
+RATE_LIMIT_MAX = 5        # max searches
+RATE_LIMIT_WINDOW = 60    # per this many seconds, per IP
+
+def _rate_limited(ip: str) -> bool:
+    key = f"ratelimit:{ip}"
+    count = _redis.incr(key)
+    if count == 1:
+        _redis.expire(key, RATE_LIMIT_WINDOW)
+    return count > RATE_LIMIT_MAX
 
 # ---------------------------------------------------------------------------
 # City / date filter (step 3 of orchestration order, before classify)
@@ -169,6 +181,13 @@ app = Flask(__name__)
 
 @app.route("/api/search", methods=["POST"])
 def search() -> Response:
+    ip = flask_request.headers.get("x-forwarded-for", flask_request.remote_addr or "unknown").split(",")[0].strip()
+    if _rate_limited(ip):
+        return Response(
+            json.dumps({"error": "too many requests, please wait a minute and try again"}),
+            status=429,
+            mimetype="application/json",
+        )
     try:
         body = flask_request.get_json(force=True) or {}
     except Exception:
