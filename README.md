@@ -1,3 +1,5 @@
+#Opportunity Finder: Event Scout for Mobile Vendors
+
 > A web app that scrapes two California event listing sites, normalizes them into a single event object, and returns the five best-fit events for a given vendor category. Both sources are written for human skimming: TheCraftMap embeds cost and tags in text with deadlines on a separate part of the page, FestivalGuides is a plain-text list where the city is whatever follows the last dash. Neither is queryable by vendor fit. The pipeline classifies event types by keyword, ranks by a hand-tuned affinity table, and cuts the field to twenty before any model call, then runs a two-stage DeepSeek cascade: a cheap numeric pre-score on the twenty, rich enrichment on the surviving five. Each field on a result card is marked as scraped or AI-estimated.
 
 **Live:** https://opportunity-finder-ca.vercel.app
