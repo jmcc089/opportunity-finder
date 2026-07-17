@@ -1,4 +1,4 @@
-#Opportunity Finder: Event Scout for Mobile Vendors
+# Opportunity Finder: Event Scout for Mobile Vendors
 
 > A web app that scrapes two California event listing sites, normalizes them into a single event object, and returns the five best-fit events for a given vendor category. Both sources are written for human skimming: TheCraftMap embeds cost and tags in text with deadlines on a separate part of the page, FestivalGuides is a plain-text list where the city is whatever follows the last dash. Neither is queryable by vendor fit. The pipeline classifies event types by keyword, ranks by a hand-tuned affinity table, and cuts the field to twenty before any model call, then runs a two-stage DeepSeek cascade: a cheap numeric pre-score on the twenty, rich enrichment on the surviving five. Each field on a result card is marked as scraped or AI-estimated.
 
@@ -6,7 +6,7 @@
 
 ---
 
-# 1. The Problem
+## 1. The Problem
 
 Mobile vendors decide where to set up: food trucks selling hot food, carts selling drinks and desserts, sellers offering souvenirs and merch. A stand fee ranges from nothing to a few hundred dollars, events run one to three days, and application deadlines close weeks ahead of the event date. A wrong choice costs a wasted weekend and the fee.
 
@@ -16,13 +16,13 @@ Neither source is queryable by vendor category. There is no field for fit, no wa
 
 ---
 
-# 2. System Design
+## 2. System Design
 
 This is a scoped MVP built, not a production deployment at scale. The design goal is narrow: turn two unstructured event indexes into a ranked, honest answer for one vendor category, spending as few model tokens as possible and never presenting a guess as a confirmed fact. Everything below follows from that one goal. The requirements set the boundary, the architecture decisions record the trade-offs that got made and the ones that got rejected, and the scope names what was left out on purpose.
 
-## 2.1 Requirements
+### 2.1 Requirements
 
-### Functional
+#### Functional
 
 - Scrape [TheCraftMap](http://thecraftmap.com/fairs/california) and [FestivalGuides](http://festivalguidesandreviews.com/california-festivals/) live on each request.
 - Normalize both formats into a single event object, tracking which fields came back empty.
@@ -32,7 +32,7 @@ This is a scoped MVP built, not a production deployment at scale. The design goa
 - Run a two-stage model cascade: a cheap numeric pre-score on roughly twenty candidates, then rich enrichment on the surviving five.
 - Return five results with score, explanation, estimated attendance, permit guidance, and stand cost, with each field marked as scraped or estimated.
 
-### Non-functional and hard rules
+#### Non-functional and hard rules
 
 - **No database.** Nothing about an event is persisted. The only stored state is an ephemeral per-IP counter for rate limiting, which expires after sixty seconds.
 - **Nothing reaches the model unfiltered.** No event is sent to the LLM before the deterministic filter has capped the candidate set at roughly twenty.
@@ -44,7 +44,7 @@ This is a scoped MVP built, not a production deployment at scale. The design goa
 
 ---
 
-## 2.2 The Event Object
+### 2.2 The Event Object
 
 Every phase from normalization onward passes this one shape. The scrapers produce two different raw formats; `normalize` maps both onto this contract, and each later phase only adds to it. Nothing downstream has to know which source an event came from.
 
@@ -69,9 +69,9 @@ Every phase from normalization onward passes this one shape. The scrapers produc
 
 `estimated_fields` is the honesty ledger the whole app is built around. At normalization it is filled with every optional field the source left empty, so a FestivalGuides event, which carries no venue, cost, tags, or deadline, arrives with all of those already listed. Stage 2 then appends the six AI field names. A field is in `estimated_fields` when it is not a confirmed value read off a page, whether because the source never carried it or because the model estimated it. The frontend renders a check for everything else and a diamond for everything in this list. That is the single mechanism behind the real versus estimated markers on every card. Deterministic values, like the classifier's `event_type`, are not in this list; they are treated as real, not estimated.
 
-## 2.3 Architecture Decisions (ADRs)
+### 2.3 Architecture Decisions (ADRs)
 
-### ADR-1: No database, scrape live
+#### ADR-1: No database, scrape live
 
 Each request scrapes both sources live. If a source cannot be reached it contributes nothing and its failure is named in `meta.warnings`, and the request still answers from the surviving source. If both fail, the request returns an error rather than anything stale. There is no snapshot, no cache, no persistence.
 
@@ -79,7 +79,7 @@ Each request scrapes both sources live. If a source cannot be reached it contrib
 - **Trade-off:** every request pays full scrape latency. Acceptable at this traffic level.
 - **Rejected:** a scheduled scrape into Postgres, which adds a database, a scheduler, and a staleness policy to serve a handful of requests a day.
 
-### ADR-2: Deterministic affinity table before the LLM
+#### ADR-2: Deterministic affinity table before the LLM
 
 A hand-tuned table of six event types against three vendor categories, each cell scored out of 40, ranks events and cuts the field to twenty before any model call.
 
@@ -87,14 +87,14 @@ A hand-tuned table of six event types against three vendor categories, each cell
 - **Trade-off:** when several events tie at the twenty-event cut boundary, the tie is broken at random, so the exact contents of the last few slots can vary between identical requests. This is deliberate: it avoids a hidden alphabetical or scrape-order bias deciding which tied events survive.
 - **Rejected:** embedding similarity, which adds a vector store and inference cost to rank about fifty rows against three categories, and produces a number nobody can explain.
 
-### ADR-3: Two-stage LLM cascade
+#### ADR-3: Two-stage LLM cascade
 
 Stage 1 sends about twenty events to the model for a cheap numeric pre-score and gets back only an id and a score per event. Stage 2 sends the surviving five in a single batched call for rich enrichment.
 
 - **Why:** token cost scales with what you send and what comes back. Stage 1 keeps output minimal across many events; Stage 2 spends richly on the few that will actually be shown. Enriching all twenty would cost roughly four times as much to produce the same five cards.
 - **Rejected:** one enrichment call per event, which multiplies request overhead by five for no quality gain, and a single call doing both jobs, which pays rich output cost on fifteen events nobody sees.
 
-### ADR-4: Keyword classifier over a model for event_type
+#### ADR-4: Keyword classifier over a model for event_type
 
 Six event types assigned by keyword matching against name and description, resolved in a fixed priority order: general_fair, cultural, food, music, art_craft, sports_other.
 
@@ -102,21 +102,21 @@ Six event types assigned by keyword matching against name and description, resol
 - **Trade-off:** an event whose name and description reveal nothing lands in sports_other as the fallback. At this scale that miss is cheap and visible.
 - **Rejected:** a model-based classifier, which introduces cost and variance to solve a lookup.
 
-### ADR-5: Degrade, do not crash, on model failure
+#### ADR-5: Degrade, do not crash, on model failure
 
 A Stage 1 parse failure falls back to the deterministic affinity order and takes the top five. A Stage 2 parse failure fills the five cards with neutral placeholder values. A malformed model response costs result quality, never the request.
 
 - **Why:** the output here is advisory, not a write to a system of record. A vendor is better served by a slightly weaker ranking than by an error page, and the deterministic filter has already guaranteed the five events are reasonable candidates before any model runs.
 - **Rejected:** hard-failing on malformed JSON. That is the right call when bad data would poison a downstream store, but this pipeline has no store to poison and nothing after it depends on the model's output being perfect.
 
-### ADR-6: Explicit real versus AI field markers
+#### ADR-6: Explicit real versus AI field markers
 
 Every field is tracked in `estimated_fields` if it is not a confirmed scraped value. The frontend renders a check for scraped fields and a diamond for estimates, with a legend below the results.
 
 - **Why:** the output mixes two kinds of claim. A stand cost read off the page and an attendance figure a model guessed are not the same thing, and a vendor deciding whether to commit a weekend and a few hundred dollars needs to know which is which. Presenting them identically would be the actual dishonesty.
 - **Rejected:** showing only scraped fields, which strips out the analysis that makes the tool useful, and showing everything unmarked, which is a cleaner interface that lies.
 
-### ADR-7: Permit guidance bounded to category level
+#### ADR-7: Permit guidance bounded to category level
 
 California issues health permits per county across 58 counties, with rules that change. The system gives permit guidance at the category level, keeps it generic and verifiable, and carries a disclaimer that it is not legal advice and should be checked with the county.
 
@@ -124,14 +124,14 @@ California issues health permits per county across 58 counties, with rules that 
 - **Trade-off:** the guidance is less specific than a vendor will ultimately need. That is the honest boundary, and the disclaimer states it rather than hiding it.
 - **Rejected:** per-county permit detail, which promises a precision the system cannot keep current.
 
-### ADR-8: Rate-limited public endpoint, ephemeral state only
+#### ADR-8: Rate-limited public endpoint, ephemeral state only
 
 The endpoint is capped at five searches per minute per IP, tracked by a counter in Upstash Redis that expires after sixty seconds.
 
 - **Why:** this is a public endpoint that triggers live scrapes of third-party sites on every call, so it needs abuse control, and serverless functions are stateless between invocations, so an in-memory counter would not survive. Redis holds only an expiring counter, never event data, so the no-database rule still holds: there is no persistence, just short-lived abuse control.
 - **Rejected:** no limiting, which leaves the scrapers open to abuse, and an in-process counter, which resets on every cold start and is not shared across concurrent function instances.
 
-### ADR-9: Single Vercel project, Python plus static
+#### ADR-9: Single Vercel project, Python plus static
 
 `framework: null` in `vercel.json` lets Vercel run the Vite build and serve the output as static files, while deploying `/api/search.py` as a Python serverless function in the same project.
 
@@ -139,7 +139,7 @@ The endpoint is capped at five searches per minute per IP, tracked by a counter 
 - **Trade-off:** serverless cold starts on the Python function, and the full scrape has to finish inside the function timeout.
 - **Rejected:** a separate Python service on Railway or Render alongside a static frontend, which is the right answer only once the backend outgrows one endpoint.
 
-## 2.4 Scope
+### 2.4 Scope
 
 A portfolio MVP: the smallest system that proves the pattern end to end, not a production deployment at scale.
 
@@ -148,9 +148,9 @@ A portfolio MVP: the smallest system that proves the pattern end to end, not a p
 
 ---
 
-# 3. Build evidence
+## 3. Build evidence
 
-## 3.1 Stack
+### 3.1 Stack
 
 [GitHub - jmcc089/opportunity-finder](https://github.com/jmcc089/opportunity-finder)
 
@@ -165,7 +165,7 @@ A portfolio MVP: the smallest system that proves the pattern end to end, not a p
 | **Styling** | Tailwind CSS v3 | Sage palette, nine custom color tokens |
 | **Deploy** | Vercel | Python function and static frontend, single project |
 
-## 3.2 Request Flow
+### 3.2 Request Flow
 
 The pipeline is a funnel. Each stage narrows the field so the model only ever sees a short, pre-ranked list, and nothing reaches LLM model until Python has cut the candidates to about twenty.
 
@@ -193,7 +193,7 @@ React frontend
    Legend        → explains the two markers
 ```
 
-## 3.3 Project structure
+### 3.3 Project structure
 
 ```
 opportunity-finder/
@@ -224,11 +224,11 @@ opportunity-finder/
 └── pyproject.toml
 ```
 
-## 3.4 Live Preview
+### 3.4 Live Preview
 
 https://opportunity-finder-ca.vercel.app
 
-## 3.5 QA & Verification
+### 3.5 QA & Verification
 
 The pipeline has several behaviors that are checkable rather than assumed, and each was exercised before deploy:
 
