@@ -13,7 +13,7 @@ TODAY = date.today()
 OPTIONAL_FIELDS = [
     "venue", "description", "stand_cost",
     "tag_indoor", "tag_outdoor", "tag_juried",
-    "deadline_date", "deadline_closed", "detail_url", "event_type",
+    "deadline_date", "deadline_closed", "detail_url",
 ]
 
 
